@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Sep  9 18:03:13 2019
+Created on Tue Sep 10 13:35:39 2019
 
 @author: catle
 """
 
-'''Train MNIST with PyTorch.'''
-'''Pretrain encoder of autoencoder with MNIST'''
+'''Train fashion-MNIST with PyTorch.'''
+'''Pretrain decoder of autoencoder with fashion-MNIST'''
 import os
 import argparse
 
@@ -53,7 +53,7 @@ class Flatten(torch.nn.Module):
 
     def forward(self, input):
         return input.flatten(self.start_dim, self.end_dim)
-
+    
 device = 'cuda'
 
 # Parser
@@ -132,65 +132,96 @@ class AEencoder(nn.Module):
         X = self.encoder(X)
         X = self.classifier(X)
         return X
- 
-cnn = AEencoder().cuda()
-print(cnn)
 
-# Train the encoder
-def fit(model, train_loader):
-    optimizer = torch.optim.Adam(model.parameters())#,lr=0.001, betas=(0.9,0.999))
-    error = nn.CrossEntropyLoss()
-    EPOCHS = 10
-    model.train()
-    for epoch in range(EPOCHS):
-        correct = 0
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-            
-            optimizer.zero_grad()
-            output = model(inputs)
-            loss = error(output, targets)
-            loss.backward()
-            optimizer.step()
-            
-            # Total correct predictions
-            predicted = torch.max(output.data, 1)[1] 
-            correct += (predicted == targets).sum()
-            #print(correct)
-            if batch_idx % 50 == 0:
-                print('Epoch : {} ({:.0f}%)\t Accuracy:{:.3f}%'.format(
-                    epoch, 100.*batch_idx / len(train_loader), float(correct*100) / float(args.batch_size_train*(batch_idx+1))))
-
-fit(cnn, trainloader)
-
-# Test the encoder on test data
-best_acc = 0
-def evaluate(model, test_loader):
-    global best_acc
-    correct = 0 
-    for test_imgs, test_labels in test_loader:
-        test_imgs = test_imgs.to(device)
-        test_labels = test_labels.to(device)
+class AEdecoder(nn.Module):
+    def __init__(self):
+        super(AEdecoder, self).__init__()
+        self.linear_decoder = nn.Sequential(
+                nn.Linear(64, 512),
+                nn.ReLU(True),
+                nn.Linear(512, 28 * 28 * 64),
+                nn.ReLU(True))
         
-        output = model(test_imgs)
-        predicted = torch.max(output,1)[1]
-        correct += (predicted == test_labels).sum()
-    print("Test accuracy:{:.3f}% ".format( float(correct * 100) / (len(test_loader)*args.batch_size_test)))
-    
-    # Save the pretrained network
-    if correct > best_acc:
-        print('Saving..')
-        state = {
-            'net': cnn.state_dict(),
-            'acc': correct,
-        }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/pretrained-encoder-fashion.t2')
-        best_acc = correct
+        self.conv_decoder = nn.Sequential(
+                nn.ConvTranspose2d(64, 32, kernel_size=5, stride=1, padding=2),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(32, 1, kernel_size=5, stride=1, padding=2),
+                nn.Sigmoid())
+        
+    def forward(self,X):
+        X = self.linear_decoder(X)
+        X = X.view(X.size(0), 64, 28, 28)
+        X = self.conv_decoder(X)
+        return X
 
-evaluate(cnn, testloader)
+# Load CNN network
+net = AEencoder()
+net = net.to(device)
+checkpoint = torch.load('./checkpoint/pretrained-encoder-fashion.t2')
+net.load_state_dict(checkpoint['net'])
+
+#------------------------------------
+# Modify pretrained CNN
+#------------------------------------
+# Freeze the parameters of encoder's layer 0, 2, 5, 7
+# only linear layers
+net.encoder[0].weight.requires_grad = False
+net.encoder[2].weight.requires_grad = False
+net.encoder[5].weight.requires_grad = False
+net.encoder[7].weight.requires_grad = False
+
+# Remove classifier (last) layer
+model = nn.Sequential(*list(net.children())[:-1])
+
+# Add new layers (decoder layers)
+decoder_net = AEdecoder()
+decoder_net = decoder_net.to(device)
+model = torch.nn.Sequential(model, decoder_net)
+
+# Train the Autoencoder
+num_epochs = 20
+batch_size = 128
+learning_rate = 1e-3
+
+#dataset = FashionMNIST('./data', download=True, train=True, transform=transform)
+#dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+
+model = model.to(device)
+print(model)
+criterion = nn.BCELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
+
+for epoch in range(num_epochs):
+    for data in trainloader:
+        img, _ = data
+        img = img.to(device)
+        # ===================forward=====================
+        output = model(img)
+        loss = criterion(output, img)
+        MSE_loss = nn.MSELoss()(output, img)
+        # ===================backward====================
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    # ===================log========================
+    print('epoch [{}/{}], loss:{:.4f}, MSE_loss:{:.4f}'
+          .format(epoch + 1, num_epochs, loss.item(), MSE_loss.item()))
+    if epoch % 10 == 0:
+        x = to_img(img.cpu().data)
+        x_hat = to_img(output.cpu().data)
+        #save_image(x, './mlp_img/x_{}.png'.format(epoch))
+        #save_image(x_hat, './mlp_img/x_hat_{}.png'.format(epoch))
+
+print('Saving..')
+state = {
+    'model': model.state_dict(),
+    'epoch': epoch,
+    }
+if not os.path.isdir('checkpoint'):
+    os.mkdir('checkpoint')
+torch.save(state, './checkpoint/AE.t1')
+
+
 
 
 
@@ -206,12 +237,12 @@ K = 50
 with torch.no_grad():
     for epoch in range(args.num_epoch):
         # Extract Feature
-        cnn.eval()
+        model.eval()
         features = []
         targets = []
         for _, (inputs, target) in enumerate(trainloader):
             inputs, target = inputs.to(device), target.cpu().detach().numpy()
-            feature = cnn.encoder(inputs).cpu().detach().numpy()
+            feature = model[0](inputs).cpu().detach().numpy()
             features.append(feature)
             targets.append(target)
             
@@ -243,13 +274,13 @@ acc = 0
 def test(epoch, args):
     global best_acc
     global acc
-    cnn.eval()
+    model.eval()
     correct = 0
     total = 0
 
     for _, (inputs, targets) in enumerate(testloader):
         inputs, targets = inputs.to(device), targets.cpu().detach().numpy()
-        features = cnn.encoder(inputs).cpu().detach().numpy()
+        features = model[0](inputs).cpu().detach().numpy()
         
         dist = np.zeros((inputs.size(0), K))
         for node in range(K):
@@ -277,23 +308,70 @@ def test(epoch, args):
 
 test(epoch, args)
 
+#-------------------------------------
+# Test decoder
+#-------------------------------------
+# Decode k values
+x = Variable(torch.from_numpy(c)).cuda()
+x = to_img(model[1](x).cpu().data)
+save_image(x, './mlp_img/k_values.png')
+
+#-------------------------------------------------   
+# Find images that mapped to cluster point
+#-------------------------------------------------
+# Find images mapped to each cluster
+for j in range(K):
+    cluster_i = np.zeros(64).astype(np.float32)
+    for i in range(dataset_size):
+        if cl[i] == j:
+            cluster_i = np.c_[cluster_i, features[i]]
+            
+    cluster_i = np.transpose(cluster_i)
+    cluster_i = np.delete(cluster_i, (0), axis=0)
+    x_cluster_i = Variable(torch.from_numpy(cluster_i)).cuda()
+    x_cluster_i = to_img(model[1](x_cluster_i).cpu().data)
+    save_image(x_cluster_i, './mlp_img/all_cluster/cluster_{}.png'.format(j))
 
 
+# Find images mapped to the 0th cluster
+cluster0 = np.zeros(64).astype(np.float32)
+for i in range(dataset_size):
+    if cl[i] == 1:
+        cluster0 = np.c_[cluster0, features[i]]
+        
+cluster0 = np.transpose(cluster0)
+cluster0 = np.delete(cluster0, (0), axis=0)
+x_cluster0 = Variable(torch.from_numpy(cluster0)).cuda()
+x_cluster0 = to_img(model[1](x_cluster0).cpu().data)
+save_image(x_cluster0, './mlp_img/cluster0.png')
+
+#-------------------------------------------------
+# Convex Hull for generativity
+#-------------------------------------------------
+convex = cluster0[0]
+temp1 = cluster0[0]
+temp2 = cluster0[1]
+temp3 = cluster0[10]
+alpha = np.linspace(0,1,8)
+
+for i in alpha:
+    for j in (1-alpha):
+        temp = i*temp3 + j*temp2 + (1-i-j)*temp1
+        convex = np.c_[convex,temp]
+
+convex = np.transpose(convex)
+convex = np.delete(convex, (0), axis=0)
+x_convex = Variable(torch.from_numpy(convex)).cuda()
+x_convex = to_img(model[1](x_convex).cpu().data)
+save_image(x_convex, './mlp_img/convex.png')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+convex_sample = temp1
+convex_sample = np.c_[convex_sample,temp2]
+convex_sample = np.c_[convex_sample,temp3]
+convex_sample = np.transpose(convex_sample)
+convex_sample = Variable(torch.from_numpy(convex_sample)).cuda()
+convex_sample = to_img(model[1](convex_sample).cpu().data)
+save_image(convex_sample, './mlp_img/convex_representatives.png')
 
 
