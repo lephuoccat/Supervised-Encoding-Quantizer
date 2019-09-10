@@ -195,6 +195,12 @@ evaluate(cnn, testloader)
 
 
 
+
+
+
+
+
+
 #---------------------------------------------------
 # Quantizer (k-means)
 #---------------------------------------------------
@@ -217,6 +223,7 @@ with torch.no_grad():
             
         features = np.concatenate(features,axis=0)
         targets = np.concatenate(targets,axis=0)
+        print(features.shape)
             
         cl, c = lloyd(features, K, device=0, tol=1e-4)
         print('next batch...')
@@ -269,31 +276,6 @@ def test(epoch, args):
     acc = 100.*correct/total
     if acc > best_acc:
         print('Saving..')  
-#        if not os.path.isdir('checkpoint_GWR'):
-#            os.mkdir('checkpoint_GWR')
-#        nx.write_gpickle(G,'./checkpoint_GWR/graph.gpickle')
-#        np.save('./checkpoint_GWR/best_acc.npy', acc)
         best_acc = acc
 
 test(epoch, args)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

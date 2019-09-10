@@ -159,16 +159,20 @@ net = AEencoder()
 net = net.to(device)
 checkpoint = torch.load('./checkpoint/pretrained-encoder-fashion.t2')
 net.load_state_dict(checkpoint['net'])
+print(net)
 
 #------------------------------------
 # Modify pretrained CNN
 #------------------------------------
 # Freeze the parameters of encoder's layer 0, 2, 5, 7
 # only linear layers
-net.encoder[0].weight.requires_grad = False
-net.encoder[2].weight.requires_grad = False
-net.encoder[5].weight.requires_grad = False
-net.encoder[7].weight.requires_grad = False
+for param in net.parameters():
+    param.requires_grad = False
+#net.encoder[0].weight.requires_grad = False
+#net.encoder[2].weight.requires_grad = False
+#net.encoder[5].weight.requires_grad = False
+#net.encoder[7].weight.requires_grad = False
+
 
 # Remove classifier (last) layer
 model = nn.Sequential(*list(net.children())[:-1])
@@ -179,7 +183,7 @@ decoder_net = decoder_net.to(device)
 model = torch.nn.Sequential(model, decoder_net)
 
 # Train the Autoencoder
-num_epochs = 20
+num_epochs = 10
 batch_size = 128
 learning_rate = 1e-3
 
@@ -209,8 +213,6 @@ for epoch in range(num_epochs):
     if epoch % 10 == 0:
         x = to_img(img.cpu().data)
         x_hat = to_img(output.cpu().data)
-        #save_image(x, './mlp_img/x_{}.png'.format(epoch))
-        #save_image(x_hat, './mlp_img/x_hat_{}.png'.format(epoch))
 
 print('Saving..')
 state = {
@@ -220,6 +222,10 @@ state = {
 if not os.path.isdir('checkpoint'):
     os.mkdir('checkpoint')
 torch.save(state, './checkpoint/AE.t1')
+
+
+
+
 
 
 
@@ -245,10 +251,11 @@ with torch.no_grad():
             feature = model[0](inputs).cpu().detach().numpy()
             features.append(feature)
             targets.append(target)
-            
+
         features = np.concatenate(features,axis=0)
         targets = np.concatenate(targets,axis=0)
-            
+        print(features.shape)
+        
         cl, c = lloyd(features, K, device=0, tol=1e-4)
         print('next batch...')
 
@@ -300,10 +307,6 @@ def test(epoch, args):
     acc = 100.*correct/total
     if acc > best_acc:
         print('Saving..')  
-#        if not os.path.isdir('checkpoint_GWR'):
-#            os.mkdir('checkpoint_GWR')
-#        nx.write_gpickle(G,'./checkpoint_GWR/graph.gpickle')
-#        np.save('./checkpoint_GWR/best_acc.npy', acc)
         best_acc = acc
 
 test(epoch, args)
