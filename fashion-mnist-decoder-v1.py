@@ -10,6 +10,7 @@ Created on Tue Sep 10 13:35:39 2019
 '''Pretrain decoder of autoencoder with fashion-MNIST'''
 import os
 import argparse
+import matplotlib.pyplot as plt
 
 import numpy as np
 from numpy import linalg as LA
@@ -183,12 +184,8 @@ decoder_net = decoder_net.to(device)
 model = torch.nn.Sequential(model, decoder_net)
 
 # Train the Autoencoder
-num_epochs = 10
-batch_size = 128
+num_epochs = 20
 learning_rate = 1e-3
-
-#dataset = FashionMNIST('./data', download=True, train=True, transform=transform)
-#dataloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
 model = model.to(device)
 print(model)
@@ -235,50 +232,50 @@ torch.save(state, './checkpoint/AE.t1')
 #---------------------------------------------------
 # Quantizer (k-means)
 #---------------------------------------------------
-# load entire dataset for k-means
+# Training quantizer
 dataset_size = 60000
 
-print('==> start K-means process..')    
-K = 50
-with torch.no_grad():
-    for epoch in range(args.num_epoch):
-        # Extract Feature
-        model.eval()
-        features = []
-        targets = []
-        for _, (inputs, target) in enumerate(trainloader):
-            inputs, target = inputs.to(device), target.cpu().detach().numpy()
-            feature = model[0](inputs).cpu().detach().numpy()
-            features.append(feature)
-            targets.append(target)
-
-        features = np.concatenate(features,axis=0)
-        targets = np.concatenate(targets,axis=0)
-        print(features.shape)
-        
-        cl, c = lloyd(features, K, device=0, tol=1e-4)
-        print('next batch...')
-
-k_label = []
-hit_map = np.column_stack((cl, targets))
-
-
-for i in range(K):
-    temp = []
-    for j in range(dataset_size):
-        if hit_map[j,0] == i:
-            temp.append(hit_map[j,1])
-        
-    hist = np.histogram(temp,bins=10,range=(0,9))[0]
-    index = [idx for idx, cnt in enumerate(hist) if cnt == max(hist)]
-    k_label.append(index[0])
-
-print('finishing training k-means...')
-
-# Testing
-best_acc = 0
-acc = 0
-def test(epoch, args):
+def train_quantizer(epoch, agrs, K):
+    global c
+    global cl
+    global k_label
+    global features
+    
+    print('==> start K-means process with K = {}..'.format(K))    
+    with torch.no_grad():
+        for epoch in range(args.num_epoch):
+            # Extract Feature
+            model.eval()
+            features = []
+            targets = []
+            for _, (inputs, target) in enumerate(trainloader):
+                inputs, target = inputs.to(device), target.cpu().detach().numpy()
+                feature = model[0](inputs).cpu().detach().numpy()
+                features.append(feature)
+                targets.append(target)
+    
+            features = np.concatenate(features,axis=0)
+            targets = np.concatenate(targets,axis=0)
+            print(features.shape)
+            
+            cl, c = lloyd(features, K, device=0, tol=1e-4)
+            print('next batch...')
+    
+    k_label = []
+    hit_map = np.column_stack((cl, targets))
+    
+    for i in range(K):
+        temp = []
+        for j in range(dataset_size):
+            if hit_map[j,0] == i:
+                temp.append(hit_map[j,1])
+            
+        hist = np.histogram(temp,bins=10,range=(0,9))[0]
+        index = [idx for idx, cnt in enumerate(hist) if cnt == max(hist)]
+        k_label.append(index[0])
+    
+# Testing quantizer
+def test_quantizer(epoch, args, K, cluster, cluster_label):
     global best_acc
     global acc
     model.eval()
@@ -292,24 +289,36 @@ def test(epoch, args):
         dist = np.zeros((inputs.size(0), K))
         for node in range(K):
             # L2 distance measure
-            dist[:,node] = LA.norm(c[node] - features, axis=1)
+            dist[:,node] = LA.norm(cluster[node] - features, axis=1)
         closest_id = np.argpartition(dist, 0, axis=1)   
         
         for idx in range(inputs.size(0)):
-            if k_label[closest_id[idx,0]] == targets[idx]:
+            if cluster_label[closest_id[idx,0]] == targets[idx]:
                 correct += 1
         total += len(targets)
-
-    if epoch % 1 == 0:   
-        print('--Test Acc-- (epoch=%d): %.3f%% (%d/%d)' % (epoch, 100.*correct/total, correct, total))
-
-    # Save checkpoint.
+    
+    # Calculate accuracy.s
     acc = 100.*correct/total
-    if acc > best_acc:
-        print('Saving..')  
-        best_acc = acc
+    
+    if epoch % 1 == 0:   
+        print('--Test Accuracy-- : %.3f%% (%d/%d)\n' % (acc, correct, total))
 
-test(epoch, args)
+# Main - train and test quantizer
+k_range = np.linspace(10,100,10).astype(int)
+accuracy = []
+for K in k_range:
+    train_quantizer(epoch, args, K)
+    print("finishing training quantizer...")
+    test_quantizer(epoch, args, K, c, k_label)
+    accuracy.append(acc)
+
+accuracy = np.concatenate(accuracy,axis=0)
+plt.plot(k_range, accuracy)
+plt.xlabel('Number of clusters (K)')
+plt.ylabel('Accuracy (%)')
+plt.title('Performance of deep semi-generative learning on fashion-MNIST')
+plt.show() 
+plt.savefig('fashion-mnist-acc.png')
 
 #-------------------------------------
 # Test decoder
