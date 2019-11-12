@@ -185,15 +185,15 @@ def evaluate(model, test_loader):
     
     # Save the pretrained network
 #    if correct > best_acc:
-#        print('Saving..')
-#        state = {
-#            'net': cnn.state_dict(),
-#            'acc': correct,
-#        }
-#        if not os.path.isdir('checkpoint'):
-#            os.mkdir('checkpoint')
-#        torch.save(state, './checkpoint/pretrained-encoder-fashion.t2')
-#        best_acc = correct
+    print('Saving..')
+    state = {
+        'net': cnn.state_dict(),
+        'acc': correct,
+    }
+    if not os.path.isdir('checkpoint'):
+        os.mkdir('checkpoint')
+    torch.save(state, './checkpoint/mnist-encoder.t1')
+    best_acc = correct
 
 evaluate(cnn, testloader)
 
