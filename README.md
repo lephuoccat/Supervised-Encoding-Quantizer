@@ -43,6 +43,6 @@ python main_decoder_fmnist.py
 ## Authors
 
 Cat P. Le (cat.le@duke.edu), 
-Yi Zhou, 
-Jie Ding, 
-Vahid Tarokh
+<br>Yi Zhou, 
+<br>Jie Ding, 
+<br>Vahid Tarokh
