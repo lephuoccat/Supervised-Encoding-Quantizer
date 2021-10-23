@@ -13,11 +13,6 @@ The illustration of the supervised-encoding quantizer (SEQ) and the quantization
   <br><img src="images/fig2.jpg" width="350" title="Illustration of the quantization process">
 </p>
 
-The illustration of the quantization process:
-<p align="center">
-  <img src="images/fig2.jpg" width="350" title="Illustration of the quantization process">
-</p>
-
 ## Getting Started
 
 ### Dependencies
