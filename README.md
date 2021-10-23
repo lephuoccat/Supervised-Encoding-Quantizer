@@ -31,7 +31,7 @@ python main_encoder.py
 ```
 python main_decoder_mnist.py
 ```
-Similarly, for fashion-MNIST, run the following:
+* Similarly, for fashion-MNIST, run the following:
 ```
 python main_decoder_fmnist.py
 ```
