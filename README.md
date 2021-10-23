@@ -7,9 +7,10 @@ This is the source code for Supervised Encoding for Discrete Representation Lear
 
 Classical supervised classification tasks search for a nonlinear mapping that maps each encoded feature directly to a probability mass over the labels. Such a learning framework typically lacks the intuition that encoded features from the same class tend to be similar and thus has little interpretability for the learned features. In this paper, we propose a novel supervised learning model named Supervised-Encoding Quantizer (SEQ). The SEQ applies a quantizer to cluster and classify the encoded features. We found that the quantizer provides an interpretable graph where each cluster in the graph represents a class of data samples that have a particular style. We also trained a decoder that can decode convex combinations of the encoded features from similar and different clusters and provide guidance on style transfer between sub-classes.
 
-The illustration of the supervised-encoding quantizer (SEQ):
+The illustration of the supervised-encoding quantizer (SEQ) and the quantization process:
 <p align="center">
   <img src="images/fig1.jpg" width="350" title="Illustration of the supervised-encoding quantizer (SEQ)">
+  <br><img src="images/fig2.jpg" width="350" title="Illustration of the quantization process">
 </p>
 
 The illustration of the quantization process:
