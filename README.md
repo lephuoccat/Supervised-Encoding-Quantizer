@@ -40,6 +40,22 @@ Similarly, for fashion-MNIST, run the following:
 python main_decoder_fmnist.py
 ```
 
+### Results
+The graphs below indicate the performance of the SEQ over the number of pre-determined clusters in k-means. As the number of clusters increases, the performance of the SEQ increases. 
+<p align="center">
+  <img src="images/fig3.jpg" width="350" title="Performance of SEQ with different architectures">
+</p>
+
+Next, we use the decoder to decoder the hidden features of the same clusters. As shown in figure below, the images are divided into sub-classes. For example, there are multiple style for digit 0. It indicates the meaningful of the hidden features that being clustered.
+<p align="center">
+  <img src="images/fig4.jpg" width="350" title="Sub-classes">
+</p>
+
+Lastly, we generate new hidden feature by convex hull combination of the data from different sub-classes. As the result, we generate novel images by passing the generated hidden features through the decoder of the autoencoder.
+<p align="center">
+  <img src="images/fig5.jpg" width="350" title="Generated Images">
+</p>
+
 ## Authors
 
 Cat P. Le (cat.le@duke.edu), 
