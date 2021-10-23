@@ -1,8 +1,6 @@
 # SUPERVISED ENCODING FOR DISCRETE REPRESENTATION LEARNING
 
-This is the source code for Supervised-Encoding Quantizer (SEQ).
-
-Supervised Encoding for Discrete Representation Learning (https://arxiv.org/pdf/1910.11067.pdf)
+This is the source code for Supervised Encoding for Discrete Representation Learning paper (https://arxiv.org/pdf/1910.11067.pdf).
 
 
 ## Description
@@ -34,7 +32,7 @@ python main_decoder_fmnist.py
 
 ## Authors
 
-Cat P. Le (cat.le@duke.edu)
-Yi Zhou
-Jie Ding
+Cat P. Le (cat.le@duke.edu), 
+Yi Zhou, 
+Jie Ding, 
 Vahid Tarokh
